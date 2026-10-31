@@ -17,6 +17,10 @@ skills/
     agent-skills/     90+ focused provider / technique skills
     pipeline_defs/    13 pipeline definitions (yaml)
     *.md              agent guide, project context
+  hyperframes/        HTML + GSAP motion-graphics runtime  (Apache-2.0)
+    skills/           9 skill folders — core, cli, registry, media, slideshow, figma
+    agent-skills/     7 agent skills — captions, motion doctrine, seam craft
+    registry-blocks/  210 blocks with templates + markup
 .github/workflows/
   selftest.yml        runner shape + ffmpeg + Pillow fps probe
   render.yml          job file -> render -> ffprobe verify -> artifact
@@ -27,6 +31,19 @@ docs/WORKFLOWS.md     runner limits, secrets, what bites
 
 **Publishing is deliberately not here.** The upload bot lives in its own
 **private** repo and is invoked from outside. This repo only *makes* things.
+
+---
+
+## Sources
+
+| Folder | Licence | What it gives you |
+|---|---|---|
+| `skills/openmontage` | **AGPLv3** | Research → script → assets → compose → self-review. The pipeline thinking. |
+| `skills/hyperframes` | **Apache-2.0** | HTML+GSAP render runtime. Motion, captions, transitions, 210 ready blocks. |
+
+Licences differ and it matters: **AGPLv3 is copyleft** — build a product on that
+material and you must publish your source. **Apache-2.0 is permissive** — no such
+obligation. Full texts sit next to each source.
 
 ---
 
