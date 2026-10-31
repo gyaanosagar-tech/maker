@@ -1,0 +1,10 @@
+{
+  "name": "example-short",
+  "resolution": "1080x1920",
+  "fps": 30,
+  "note": "Reference shape only. scripts/render.py reads this.",
+  "beats": [
+    {"id": "b0", "line": "Opening line.", "tag": "HOOK", "image": "img/01.jpg"},
+    {"id": "b1", "line": "Second beat.", "tag": "POINT", "image": "img/02.jpg"}
+  ]
+}

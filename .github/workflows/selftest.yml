@@ -1,0 +1,45 @@
+name: selftest
+
+# Cheap sanity check: runner shape + ffmpeg + Pillow + fonts.
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/selftest.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Runner shape
+        run: |
+          echo "CPU: $(nproc)   RAM: $(free -g | awk '/^Mem:/{print $2}')GB"
+          df -h / | tail -1
+      - name: ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -1
+      - name: Pillow render smoke test
+        run: |
+          pip install --quiet Pillow numpy
+          python - <<'EOF'
+          import time, numpy as np
+          from PIL import Image, ImageDraw
+          t0 = time.time()
+          for i in range(60):
+              im = Image.new("RGB", (1080, 1920), (10, 10, 14))
+              d = ImageDraw.Draw(im)
+              d.ellipse([200 + i, 600, 800 + i, 1200], fill=(255, 214, 0))
+              im.save(f"/tmp/f{i:03d}.jpg", quality=94)
+          dt = time.time() - t0
+          print(f"60 frames in {dt:.2f}s -> {60/dt:.1f} fps")
+          print(f"1544 frames would take ~{1544/(60/dt)/60:.1f} min")
+          EOF

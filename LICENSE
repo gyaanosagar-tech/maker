@@ -1,0 +1,11 @@
+This repository mixes two bodies of work with different terms.
+
+1. skills/openmontage/  — derived from calesthio/OpenMontage, licensed AGPLv3.
+   The full licence text is at skills/openmontage/LICENSE.
+   Any reuse of that material is governed by AGPLv3.
+
+2. Everything else (skills/ytshort/, workflows/, scripts/, docs/, this file)
+   — original work by the repository owner.
+
+If you are unsure which part you are looking at: if it is under
+skills/openmontage/, assume AGPLv3.

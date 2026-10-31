@@ -1,0 +1,80 @@
+name: render
+
+# Manual trigger only. Nothing runs on push — a render is a deliberate act.
+on:
+  workflow_dispatch:
+    inputs:
+      job_file:
+        description: 'Job spec (JSON) describing the video to build'
+        required: true
+        default: 'jobs/example.json'
+      upload_artifact:
+        description: 'Keep the finished video as a downloadable artifact (max 90 days)'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    # ubuntu-latest on a public repo = 4 vCPU / 16 GB RAM, free + unlimited
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: System deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
+          ffmpeg -version | head -1
+          free -h
+          nproc
+
+      - name: Python deps
+        run: |
+          python -m pip install --upgrade pip
+          for f in requirements.txt skills/ytshort/requirements.txt; do
+            [ -f "$f" ] && pip install -r "$f" || true
+          done
+
+      - name: Render
+        env:
+          JOB_FILE: ${{ github.event.inputs.job_file }}
+        run: |
+          set -euo pipefail
+          echo "job: $JOB_FILE"
+          if [ -f scripts/render.py ]; then
+            python scripts/render.py --job "$JOB_FILE"
+          else
+            echo "::warning::scripts/render.py not present yet — nothing to render"
+          fi
+
+      - name: Verify output
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          found=0
+          for f in out/*.mp4 out/**/*.mp4; do
+            echo "== $f"
+            ffprobe -v error -show_entries format=duration,size \
+              -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,nb_frames \
+              -of default=noprint_wrappers=1 "$f"
+            found=1
+          done
+          [ "$found" = 1 ] || { echo "::error::no mp4 produced"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ github.event.inputs.upload_artifact == 'true' }}
+        with:
+          name: render-${{ github.run_number }}
+          path: out/**/*.mp4
+          retention-days: 14
+          if-no-files-found: error
