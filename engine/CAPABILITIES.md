@@ -45,7 +45,7 @@ together, or neither.
 
 | What | File | Job |
 |---|---|---|
-| Media — CC0/PD/CC BY only | `core/tools.py:search_images/search_audio` | Openverse, licence-filtered, credit captured at download |
+| Media — Wikimedia first | `core/tools.py:search_images/search_audio` | Openverse, licence-filtered, credit captured at download |
 | Voice | `core/tools.py:tts` | Piper → espeak fallback. Local, offline, no key |
 | Ears | `core/tools.py:Earshot` | `describe`, `timeline`, `kit`, `forge` |
 | Motion | `core/tools.py:HyperFrames` | `npx hyperframes media-use resolve` |
@@ -74,3 +74,31 @@ together, or neither.
 | Word-level captions | Needs `transcribe.py` **and** a caption layout. Half now = no visible change. |
 | Remotion path | HyperFrames covers it; running both means two Node toolchains on a 14 GB runner. |
 | Publishing | Out of scope by your instruction. `ytshort` stays private. |
+
+
+---
+
+## Bugs found while integrating — and what fixed them
+
+Recorded because each one would have shipped silently.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Black bars at frame edges | PIL `crop()` pads out-of-bounds with black instead of raising; the Ken Burns zoom cropped past the source | `kburns.oversize()` guarantees the source is ≥ max-zoom, and every crop is clamped |
+| Pepper frame blown out | Exposure corrected on **mean** luma only. A bright subject on a dark background has a low mean and already-clipped highlights, so the correction pushed them further | `auto_expose()` now measures the **95th percentile** too and takes the stricter of the two limits |
+| `credits.json` came out empty | `fetch_assets` wrote credits into the assets dir; `build` never read them back and rebuilt an empty list | `build` reads `assets/credits.json` at start; the on-frame credit is derived from it |
+| Fine print never appeared on frame | credit was passed but the draw call had nothing to draw | wired to `core.grid.Y.credit` |
+| `"hot"` alone on a line | greedy wrap | `text._balance()` moves words so the short line is ≥ ~55% of the long one |
+| `status.py` said skills absent on CI | path resolved inside `engine/`, skills live at the repo root | `repo_root()` |
+| `network: no` on a healthy runner | probe did a bare GET on a base URL | probes a real query against a real endpoint |
+| Openverse unreachable from CI | it genuinely is blocked from GitHub runners (25 s timeout, http 000) | Wikimedia promoted to primary provider |
+
+## Verified, not assumed
+
+| Check | Result |
+|---|---|
+| Local render, demo job | 93 frames, 3.10 s, −16.3 LUFS, QC **PASS** |
+| GitHub Actions render | run **#2 success**, artifact 2.12 MB, 1080×1920 h264 + aac, 93 frames |
+| Live Wikimedia search | `capsicum annuum fruit` → CC BY-SA 3.0, 1600×1278, creator captured |
+| Full chain: search → download → render → mp4 | 81 frames, QC **PASS**, credits present on frame and in JSON |
+| Probe/QC refusing bad output | `qc.py` fails on wrong size, wrong frame count, missing audio, loudness outside range |

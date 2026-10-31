@@ -7,7 +7,7 @@ Each adapter answers three questions honestly:
 
 Nothing in here pretends to work. `status()` is the truth table.
 """
-import json, os, shutil, subprocess, urllib.request, urllib.parse
+import json, os, re, shutil, subprocess, urllib.request, urllib.parse
 
 TIMEOUT = 30
 
@@ -43,6 +43,8 @@ def status() -> dict:
                                     os.path.expanduser("~/assets/fonts")))
     s["skills"]   = {d: os.path.isdir(repo_root(d)) for d in ("openmontage", "hyperframes", "earshot")}
     s["network"]  = _net()
+    s["wikimedia"] = _probe(WM_API + "?action=query&format=json&meta=siteinfo")
+    s["openverse"] = _probe("https://api.openverse.org/v1/images/?q=a&page_size=1")
     return s
 
 def repo_root(sub: str) -> str:
@@ -50,21 +52,79 @@ def repo_root(sub: str) -> str:
     here = os.path.dirname(os.path.abspath(__file__))          # .../engine/core
     return os.path.normpath(os.path.join(here, "..", "..", "skills", sub))
 
-def _net():
-    """Probe a real endpoint with a real request.
-
-    A bare GET on a base URL returns 400/403 and used to look like 'offline'
-    on a runner that was perfectly online. Ask for something specific."""
+def _probe(url: str, timeout: int = 12) -> bool:
     try:
-        req = urllib.request.Request(
-            "https://api.openverse.org/v1/images/?q=water&page_size=1&license=cc0",
-            headers={"User-Agent": "maker/1.0 (+video engine)"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return r.status == 200
-    except Exception as e:
-        return f"unreachable ({type(e).__name__})"
+        req = urllib.request.Request(url, headers={"User-Agent": "maker/1.0 (+video engine)"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return 200 <= r.status < 300
+    except Exception:
+        return False
+
+def _net():
+    """Any usable media source? Wikimedia is the one that matters."""
+    return _probe(WM_API + "?action=query&format=json&meta=siteinfo")
 
 # ---------------------------------------------------------------- media search
+
+# ---------------------------------------------------------------- wikimedia
+# The primary source. Apache/CC-friendly, no key, and the same place our
+# earlier licensed images came from. Every record carries its licence text.
+
+WM_API = "https://commons.wikimedia.org/w/api.php"
+GOOD_LICENSES = ("cc0", "cc by", "cc-by", "public domain", "pd-", "pdm")
+
+def _wm_ok(lic: str) -> bool:
+    l = (lic or "").lower()
+    if any(bad in l for bad in ("nc", "-nd", "noncommercial", "no derivative")):
+        return False
+    return any(g in l for g in GOOD_LICENSES)
+
+def search_images_wikimedia(q: str, n: int = 10, min_px: int = 1200) -> list:
+    """Search Wikimedia Commons. Returns only records with a clean licence."""
+    params = urllib.parse.urlencode({
+        "action": "query", "format": "json", "generator": "search",
+        "gsrsearch": f"{q} filetype:bitmap", "gsrnamespace": "6", "gsrlimit": str(n * 3),
+        "prop": "imageinfo", "iiprop": "url|size|extmetadata", "iiurlwidth": "1600",
+    })
+    req = urllib.request.Request(f"{WM_API}?{params}",
+                                 headers={"User-Agent": "maker/1.0 (+video engine)"})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        data = json.load(r)
+
+    out = []
+    for page in (data.get("query", {}).get("pages", {}) or {}).values():
+        ii = (page.get("imageinfo") or [{}])[0]
+        meta = ii.get("extmetadata", {}) or {}
+        def g(k):
+            v = meta.get(k, {})
+            return (v.get("value") if isinstance(v, dict) else "") or ""
+        lic = g("LicenseShortName") or g("License")
+        if not _wm_ok(lic):
+            continue
+        if ii.get("width", 0) < min_px or ii.get("height", 0) < min_px:
+            continue
+        artist = g("Artist")
+        artist = re.sub(r"<[^>]+>", "", artist).strip() or "unknown"
+        title = (page.get("title") or "").replace("File:", "")
+        url = ii.get("thumburl") or ii.get("url")
+        out.append({
+            "provider": "wikimedia",
+            "id": str(page.get("pageid")),
+            "title": title,
+            "creator": artist,
+            "license": lic,
+            "license_version": "",
+            "source": "Wikimedia Commons",
+            "url": url,
+            "landing": ii.get("descriptionurl"),
+            "width": ii.get("thumbwidth") or ii.get("width"),
+            "height": ii.get("thumbheight") or ii.get("height"),
+            "attribution": f'"{title}" by {artist} — {lic}, via Wikimedia Commons',
+        })
+        if len(out) >= n:
+            break
+    return out
+
 
 LICENSES = ("cc0", "pdm", "by", "by-sa")   # never nc, never nd, never unknown
 
@@ -100,11 +160,28 @@ def _ov(kind: str, q: str, n: int = 12) -> list:
         })
     return out
 
-def search_images(q: str, n: int = 12) -> list:
-    return _ov("images", q, n)
+def search_images(q: str, n: int = 12, provider: str = "auto") -> list:
+    """Wikimedia first (it resolves everywhere), Openverse second."""
+    if provider in ("auto", "wikimedia"):
+        try:
+            got = search_images_wikimedia(q, n)
+            if got or provider == "wikimedia":
+                return got
+        except Exception:
+            pass
+    if provider in ("auto", "openverse"):
+        try:
+            return _ov("images", q, n)
+        except Exception:
+            return []
+    return []
 
 def search_audio(q: str, n: int = 12) -> list:
-    return _ov("audio", q, n)
+    """Audio has no Wikimedia equivalent worth using; Openverse only."""
+    try:
+        return _ov("audio", q, n)
+    except Exception:
+        return []
 
 def download(rec: dict, dest_dir: str) -> dict:
     os.makedirs(dest_dir, exist_ok=True)
@@ -211,7 +288,8 @@ def report() -> str:
         ("piper",      s["piper"],   "offline voice"),
         ("espeak",     s["espeak"],  "offline voice (fallback)"),
         ("fonts",      s["fonts"],   "typography"),
-        ("network",    s["network"] is True, "Openverse search (CC0/PD/CC BY)"),
+        ("wikimedia",  s["wikimedia"], "primary image source (CC0/PD/CC BY/SA)"),
+        ("openverse",  s["openverse"], "secondary (often blocked on CI)"),
     ]
     for name, val, role in rows:
         lines.append(f"{name:17s} {'yes' if val else 'no':7s}  {role}")
@@ -219,6 +297,7 @@ def report() -> str:
         lines.append(f"skills/{k:<10s} {'yes' if v else 'no':7s}  reference material")
     lines.append("")
     lines.append(f"voice: {tts_available()}")
-    if s["network"] is not True:
-        lines.append(f"network: {s['network']}")
+    if not s["network"]:
+        lines.append("network: no usable media source — fetch_assets will fail, "
+                     "supply local images instead")
     return "\n".join(lines)

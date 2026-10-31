@@ -62,8 +62,26 @@ def wrap(role: str, text: str, max_w: int, size: int, max_lines: int = 3):
         if cur:
             lines.append(cur)
         if len(lines) <= max_lines or size <= 40:
-            return f, lines
+            return f, _balance(lines, max_w, f, d)
         size -= 6
+
+def _balance(lines, max_w, f, d):
+    """Move words between lines so the shorter line is at least ~55% of the
+    longer. A one-word last line reads as a mistake, not a choice."""
+    if len(lines) < 2:
+        return lines
+    while len(lines[-1].split()) <= 1 and len(lines) > 1:
+        prev = lines[-2].split()
+        if len(prev) <= 1:
+            break
+        moved = prev[-1]
+        cand_prev = " ".join(prev[:-1])
+        cand_last = (moved + " " + lines[-1]).strip()
+        if width(d, cand_prev, f) <= max_w and width(d, cand_last, f) <= max_w:
+            lines = lines[:-2] + [cand_prev, cand_last]
+        else:
+            break
+    return lines
 
 def draw_block(d: ImageDraw.ImageDraw, lines, f, cx: int, y: int, lh: float,
                fill=(255, 255, 255, 255), shadow=(0, 0, 0, 240), shadow_off: int = 5):

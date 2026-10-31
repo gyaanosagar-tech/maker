@@ -15,11 +15,36 @@ def cover(im: Image.Image, w: int, h: int) -> Image.Image:
 def mean_luma(im: Image.Image) -> float:
     return sum(ImageStat.Stat(im.convert("L")).mean)
 
-def auto_expose(im: Image.Image, target: float = 118.0, gamma: float = 0.85) -> Image.Image:
-    """Pull the image's mean luma toward `target`. gamma<1 is gentler on darks."""
+def pct_luma(im: Image.Image, p: float = 0.95) -> float:
+    """95th-percentile luma — tells us whether highlights are already clipped."""
+    h = im.convert("L").histogram()
+    total = sum(h)
+    target = total * p
+    acc = 0
+    for v, c in enumerate(h):
+        acc += c
+        if acc >= target:
+            return float(v)
+    return 255.0
+
+def auto_expose(im: Image.Image, target: float = 108.0, ceil: float = 246.0) -> Image.Image:
+    """Correct toward `target` mean, but never push highlights past `ceil`.
+
+    A bright subject on a dark background has a low mean and already-clipped
+    highlights. Correcting on the mean alone blows it out — which is exactly
+    how the first pepper frame looked. Measure both, take the stricter limit.
+    """
     m = max(mean_luma(im), 1.0)
-    k = (target / m) ** gamma
-    return ImageEnhance.Brightness(im).enhance(max(0.45, min(2.8, k)))
+    p95 = max(pct_luma(im, 0.95), 1.0)
+
+    k_mean = target / m
+    k_hi = ceil / p95
+    k = min(k_mean, max(k_hi, 0.55))       # never brighter than the highlights allow
+    k = max(0.50, min(2.20, k))
+
+    if abs(k - 1.0) < 0.04:
+        return im
+    return ImageEnhance.Brightness(im).enhance(k)
 
 def vignette(im: Image.Image, strength: float = 0.30, feather: int = 34) -> Image.Image:
     """Darken corners. Centre stays untouched — the opposite of a mistake
@@ -49,7 +74,7 @@ def scrim(im: Image.Image, top_frac: float = 0.30, top_a: int = 150,
         p[0, y] = a
     return Image.composite(Image.new("RGB", (w, h), (0, 0, 0)), im, band.resize((w, h)))
 
-def cinematic(im: Image.Image, *, sat=1.22, contrast=1.14, target=118.0,
+def cinematic(im: Image.Image, *, sat=1.18, contrast=1.10, target=108.0,
               do_vignette=True, do_scrim=True) -> Image.Image:
     im = auto_expose(im, target)
     im = ImageEnhance.Color(im).enhance(sat)

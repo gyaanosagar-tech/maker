@@ -24,6 +24,14 @@ import grid as G
 
 from PIL import Image
 
+def _short_credit(c: dict) -> str:
+    """On-frame credit: creator + licence. Full text goes in credits.json."""
+    who = (c.get("creator") or "unknown").strip()
+    lic = (c.get("license") or "").strip()
+    if len(who) > 28:
+        who = who[:26].rstrip() + "…"
+    return f"{who} · {lic}" if lic else who
+
 def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
     job = json.load(open(job_path))
     name = job.get("name") or os.path.splitext(os.path.basename(job_path))[0]
@@ -38,6 +46,18 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
     # ---- 1. media
     assets = job.get("assets_dir") or os.path.join(
         os.path.dirname(os.path.abspath(job_path)), "assets")
+
+    # credits were written by fetch_assets at download time — read them back,
+    # don't invent them at the end.
+    src_credits = {}
+    cp = os.path.join(assets, "credits.json")
+    if os.path.exists(cp):
+        try:
+            for c in json.load(open(cp)):
+                if c.get("beat"):
+                    src_credits[c["beat"]] = c
+        except Exception:
+            pass
     credits, missing = [], []
     for b in tl.beats:
         p = b.image if os.path.isabs(b.image) else os.path.join(assets, b.image)
@@ -46,8 +66,8 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
             b.image = None
         else:
             b.image = p
-        if b.__dict__.get("credit"):
-            credits.append({"beat": b.id, "credit": b.credit})
+        if b.id in src_credits:
+            credits.append(src_credits[b.id])
     if missing:
         raise FileNotFoundError(f"missing images: {missing} — run scripts/fetch_assets.py")
     report.append(f"images ok: {len(tl.beats) - len(missing)}/{len(tl.beats)}")
@@ -79,8 +99,9 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
         b = tl.beats[idx]
         local = (f - b.start_frame) / max(1, b.frames - 1)
         local = max(0.0, min(1.0, local))
-        img = CP.frame_for(b, cache[idx], local, idx, len(tl.beats),
-                           credit=(f"image {idx+1}/{len(tl.beats)}"))
+        c = src_credits.get(b.id)
+        credit = _short_credit(c) if c else ""
+        img = CP.frame_for(b, cache[idx], local, idx, len(tl.beats), credit=credit)
         # transitions on the first 8 frames of a beat
         if idx > 0 and f - b.start_frame < 8:
             import transition as TR

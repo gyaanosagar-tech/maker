@@ -1,0 +1,35 @@
+{
+ "name": "licensed_test",
+ "format": "short",
+ "head_seconds": 0.4,
+ "tail_seconds": 1.4,
+ "beats": [
+  {
+   "id": "b1",
+   "query": "Capsicum annuum fruit",
+   "tag": "STEP 1",
+   "line": "Capsaicin is not hot",
+   "pad": 0.3,
+   "move": 0,
+   "image": "17053319.jpg"
+  },
+  {
+   "id": "b2",
+   "query": "Scoville scale peppers",
+   "tag": "TRICK",
+   "line": "It fakes a burn",
+   "pad": 0.3,
+   "move": 3,
+   "image": "10138773.jpg"
+  },
+  {
+   "id": "b3",
+   "query": "Van Gogh starry night",
+   "tag": "RESULT",
+   "line": "Brain believes it",
+   "pad": 0.3,
+   "move": 5,
+   "image": "165439427.jpg"
+  }
+ ]
+}
