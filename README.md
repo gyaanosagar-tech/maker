@@ -1,145 +1,118 @@
 # maker
 
-Video production skills, workflows and notes — for building short-form video
-end to end: research → script → assets → edit → render → publish.
+A public home for the tools we use to **make** short-form video.
 
-Built to run on **GitHub Actions** (public repo = 16 GB RAM / 4 vCPU runners,
-unlimited minutes), not on a laptop.
+One repo, many sources. Each source lives in its own folder under `skills/`,
+credited and licensed where it comes from. Rendering runs on **GitHub Actions**
+(public repo → 16 GB / 4 vCPU runners, unlimited minutes), not on a small box.
 
 ---
 
-## What's in here
+## Layout
 
 ```
 skills/
-  openmontage/        # agentic video production knowledge (see LICENSE note below)
-    skills/           # core, meta, creative, pipeline stage skills
-    agent-skills/     # 90+ focused provider/technique skills
-    pipeline_defs/    # 13 pipeline definitions (yaml)
-    *.md              # agent guide, project context
-  ytshort/            # cross-posting bot: Drive -> YouTube + Instagram + Facebook
-    bot.py            # main entrypoint
-    youtube_uploader.py
-    instagram_uploader.py
-    meta_*.py         # Meta Graph helpers
-    state_store.py    # run state / logs
-    *.md              # setup guides
-workflows/            # GitHub Actions
-scripts/              # helpers
-docs/                 # notes
+  openmontage/        agentic video production knowledge  (AGPLv3)
+    skills/           736 skill docs — core, meta, creative, pipeline stages
+    agent-skills/     90+ focused provider / technique skills
+    pipeline_defs/    13 pipeline definitions (yaml)
+    *.md              agent guide, project context
+.github/workflows/
+  selftest.yml        runner shape + ffmpeg + Pillow fps probe
+  render.yml          job file -> render -> ffprobe verify -> artifact
+scripts/render.py     render entrypoint (replace the body with the real pipeline)
+jobs/example.json     the shape of a render request
+docs/WORKFLOWS.md     runner limits, secrets, what bites
 ```
+
+**Publishing is deliberately not here.** The upload bot lives in its own
+**private** repo and is invoked from outside. This repo only *makes* things.
 
 ---
 
-## Two things that live here
+## What's in `skills/openmontage`
 
-### 1. `skills/openmontage` — agentic video production
+Derived from [calesthio/OpenMontage](https://github.com/calesthio/OpenMontage).
 
-The knowledge layer behind an AI-driven video pipeline: how to research a topic,
-pick a pipeline, generate or retrieve assets, compose a timeline, render, and
-self-review the result before delivery.
-
-Highlights worth knowing:
+The useful parts, if you want a fast map:
 
 | Skill | What it teaches |
 |---|---|
-| `meta/video-reference-analyst.md` | Given a reference video URL, break down its pacing/structure/style |
+| `meta/video-reference-analyst.md` | Given a reference video URL, break down pacing / structure / style |
+| `meta/creative-intake.md` | Turning a vague idea into a producible brief |
+| `meta/reviewer.md` | Multi-point self-review before delivery |
 | `core/ffmpeg.md` | Composition, encoding, delivery |
 | `core/subtitle-sync.md` | Word-level caption timing |
 | `core/color-grading.md` | Grade consistency across mixed sources |
-| `creative/broll-planning.md` | When to cut, what to put on screen |
-| `pipelines/*/` | 13 end-to-end pipeline playbooks |
+| `core/remotion.md` / `core/hyperframes.md` | Which render runtime for which brief |
+| `creative/broll-planning.md` | When to cut, what goes on screen |
+| `pipelines/*/` | 13 end-to-end playbooks |
 | `agent-skills/hyperframes-animation/` | Motion rules, transitions, blueprints |
 | `agent-skills/ffmpeg/` | Low-level filter graph patterns |
 
-**Licence:** the OpenMontage material in `skills/openmontage/` is derived from
-[calesthio/OpenMontage](https://github.com/calesthio/OpenMontage), which is
-**AGPLv3**. The original LICENSE is kept at
-`skills/openmontage/LICENSE`. Anything you build by reusing that material
-inherits AGPLv3 — read it before you publish a product on top of it.
-
-### 2. `skills/ytshort` — publish layer
-
-A bot that takes a finished file from Drive and posts it to YouTube, Instagram
-and Facebook on a schedule.
-
-- YouTube: resumable upload, `publishAt` scheduling, playlist insert,
-  `notifySubscribers=false`
-- Instagram: container + poll + publish, 720x1280 re-encode
-- Facebook: page video upload
-- State in CSV so you can see what went where
-
-All credentials come from environment variables. **Nothing is committed.**
-Copy `.env.example` → `.env` and fill it locally or as GitHub Secrets.
+**Licence:** AGPLv3. Original text kept at `skills/openmontage/LICENSE`.
+Anything you build on top of that material inherits AGPLv3 — read it before
+you ship a product.
 
 ---
 
 ## Why GitHub Actions
 
-| | Local laptop | Public repo runner |
+| | Small box | Public repo runner |
 |---|---|---|
-| RAM | 2 GB (typical small box) | **16 GB** |
+| RAM | ~2 GB | **16 GB** |
 | vCPU | 2 | **4** |
 | Minutes | your time | **unlimited (public repo)** |
 | Disk | varies | 14 GB |
 
-Rendering 1500+ frames at 1080p with Pillow blows past 2 GB. It does not come
+Rendering ~1500 frames at 1080p with Pillow blows past 2 GB. It does not come
 close to 16 GB.
 
-**Caveats that actually bite:**
+**Limits that actually bite:**
 
-- **6-hour job limit.** A render that long is a bug, not a job.
-- **Artifacts expire after 90 days.** Never leave a final video as a build
-  artifact only — push it to Drive/YouTube, or attach it to a release.
-- **Standard runners only are free.** Bigger machines are billed even on public
-  repos.
-- **Don't put credentials in a public repo** — not even in Actions logs. Use
-  repository secrets and mask them.
+- **6-hour job cap.** A render longer than that is a design bug, not a job.
+- **Artifacts expire (90 days max, 14 set here).** Never let a finished video
+  live only as a build artifact — push it somewhere durable.
+- **Only standard runners are free.** Bigger machines are billed even on
+  public repos.
+- **Public repo = public logs.** Never inline a credential. Use secrets.
 
 ---
 
 ## Setup
 
 ```bash
-pip install -r skills/ytshort/requirements.txt
-cp skills/ytshort/.env.example .env    # then fill it
+pip install -r requirements.txt
+# render side also needs: Python 3.10+, FFmpeg, Node 18+ (only for Remotion/HyperFrames)
 ```
 
-For the render side you also need:
-
-- Python 3.10+
-- FFmpeg
-- Node.js 18+ (only if you use the Remotion/HyperFrames composition path)
+Run the self test from the Actions tab first — it prints real CPU/RAM and how
+long a 1544-frame render would take on the runner.
 
 ---
 
 ## House rules learned the hard way
 
 1. **Frame-exact timing beats everything.** Build the shot list in frames, not
-   seconds. Audio trimmed to the exact frame count. Sync drifts silently
-   otherwise.
+   seconds. Trim audio to the exact frame count. Sync drifts silently otherwise.
 2. **Never trust a search result's subject.** A query for "chili pepper" once
-   returned a rock band. Always eyeball before you ship.
+   returned a rock band. Always eyeball the asset before shipping.
 3. **Licence is not a credit line.** CC BY / CC BY-SA / Public Domain are usable.
-   A credit on an unlicensed image is still unlicensed. Check
-   `skills/openmontage/agent-skills/` and the source's own metadata.
-4. **Bake static work once.** Per-frame overlays that re-render fonts and
-   gradients every frame are what make renders slow. Pre-compute the base
-   image, composite per frame.
+   A credit on an unlicensed image is still unlicensed.
+4. **Bake static work once.** Re-rendering fonts and gradients every frame is
+   what makes renders slow. Pre-compute the base image, composite per frame.
 5. **Don't hold big images in memory.** Caching scaled copies of every source
    image is how you get OOM-killed on a small box.
+6. **Make and publish stay separate.** Different repos, different risk.
 
 ---
 
-## Status
+## Adding a source
 
-- `skills/openmontage` — reference material, not a running pipeline
-- `skills/ytshort` — working bot, used in production
-- `workflows/` — being built
+New repos get their own folder under `skills/`. Each one needs:
 
----
+- where it came from (upstream URL + commit if you pinned one)
+- its licence
+- one line on what it actually helps with
 
-## Credits
-
-- OpenMontage — https://github.com/calesthio/OpenMontage (AGPLv3)
-- Everything else here is original work.
+See `docs/ADDING_SOURCES.md`.

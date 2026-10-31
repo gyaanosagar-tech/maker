@@ -15,7 +15,6 @@ Bigger runners are billed even on public repos.
 |---|---|---|
 | `selftest.yml` | push / manual | Prints CPU + RAM, checks ffmpeg, renders 60 dummy frames and reports fps |
 | `render.yml` | manual | Full render from a job file, then `ffprobe` verification, then artifact upload |
-| `publish.yml` | manual | Downloads a render artifact and posts it via the ytshort bot. **Dry-run by default** |
 
 ## First run
 
@@ -26,16 +25,8 @@ Bigger runners are billed even on public repos.
 
 ## Secrets
 
-Only `publish.yml` needs them. Add under Settings → Secrets → Actions:
-
-```
-YT_CLIENT_ID
-YT_CLIENT_SECRET
-YT_REFRESH_TOKEN
-IG_ACCESS_TOKEN
-IG_USER_IDS
-FB_PAGE_IDS
-```
+The render path needs **none**. Publishing is handled by a separate private
+repo, so no platform credentials ever touch this public repo.
 
 Never inline a token in a workflow file. Public repo = public logs.
 
