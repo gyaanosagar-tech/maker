@@ -27,14 +27,23 @@ jobs:
       - name: Install
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core espeak-ng
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core fonts-liberation espeak-ng
           pip install --quiet pillow numpy requests
+          mkdir -p "$HOME/assets/fonts"
+          # repo fonts if present, else the sistem ones we just installed
+          if [ -d assets/fonts ]; then cp -n assets/fonts/* "$HOME/assets/fonts/" || true; fi
+          for f in /usr/share/fonts/truetype/dejavu/*.ttf /usr/share/fonts/truetype/liberation/*.ttf; do
+            cp -n "$f" "$HOME/assets/fonts/" 2>/dev/null || true
+          done
+          ls "$HOME/assets/fonts" | head
 
       - name: What can this runner do?
         run: python3 engine/scripts/status.py
 
       - name: Probe media sources
+        continue-on-error: true
         run: |
+          set +e
           echo "--- openverse ---"
           curl -sS -m 25 -o /tmp/ov.json -w "http=%{http_code} time=%{time_total}s size=%{size_download}\n" \
             "https://api.openverse.org/v1/images/?q=pepper&page_size=2&license=cc0" || echo "curl failed: $?"
