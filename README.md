@@ -21,6 +21,10 @@ skills/
     skills/           9 skill folders — core, cli, registry, media, slideshow, figma
     agent-skills/     7 agent skills — captions, motion doctrine, seam craft
     registry-blocks/  210 blocks with templates + markup
+  earshot/            ears for coding agents — sound analysis + synthesis  (MIT)
+    earshot/          CLI, Python API, MCP server, 252-sound code bank
+    skills/           agent skill docs
+    eval/             benchmark suites (semantics, timeline, realness, forge)
 .github/workflows/
   selftest.yml        runner shape + ffmpeg + Pillow fps probe
   render.yml          job file -> render -> ffprobe verify -> artifact
@@ -40,10 +44,11 @@ docs/WORKFLOWS.md     runner limits, secrets, what bites
 |---|---|---|
 | `skills/openmontage` | **AGPLv3** | Research → script → assets → compose → self-review. The pipeline thinking. |
 | `skills/hyperframes` | **Apache-2.0** | HTML+GSAP render runtime. Motion, captions, transitions, 210 ready blocks. |
+| `skills/earshot` | **MIT** | Hearing. Describe/match/find sound, audit a film's audio timeline, synthesize effects in code, fit existing recordings. |
 
-Licences differ and it matters: **AGPLv3 is copyleft** — build a product on that
-material and you must publish your source. **Apache-2.0 is permissive** — no such
-obligation. Full texts sit next to each source.
+Licences differ and it matters. **AGPLv3 is copyleft** — build a product on that
+material and you must publish your source. **Apache-2.0 and MIT are permissive** —
+no such obligation. Full texts sit next to each source.
 
 ---
 
