@@ -101,4 +101,6 @@ Recorded because each one would have shipped silently.
 | GitHub Actions render | run **#2 success**, artifact 2.12 MB, 1080×1920 h264 + aac, 93 frames |
 | Live Wikimedia search | `capsicum annuum fruit` → CC BY-SA 3.0, 1600×1278, creator captured |
 | Full chain: search → download → render → mp4 | 81 frames, QC **PASS**, credits present on frame and in JSON |
+| **Same chain on GitHub Actions**, run #12 | fetch found 3 licensed images from Wikimedia **on the runner**; render OK, 81 frames, QC **PASS**, artifact 2.08 MB |
+| Fonts on a bare runner | DejaVu + Liberation installed into `~/assets/fonts`; render matches local layout |
 | Probe/QC refusing bad output | `qc.py` fails on wrong size, wrong frame count, missing audio, loudness outside range |
