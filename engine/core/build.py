@@ -1,0 +1,144 @@
+"""build — job in, mp4 + evidence out.
+
+The pipeline, in the order that matters:
+
+  1. resolve media   (skills → tools.search_images / search_audio / local)
+  2. voice           (local tts, or supplied files; never invented timings)
+  3. timeline        (frames first, seconds derived)
+  4. frames          (compose per beat)
+  5. audio           (voice, impacts on cuts, room, optional bed)
+  6. encode + QC     (probe the result; refuse to report success on a bad file)
+  7. evidence        (timeline.json, credits.json, qc.json, report.txt)
+
+Everything is written to out/<job>/ so a failure leaves a trail.
+"""
+import json, os, sys, traceback
+
+import timeline as TL
+import audio as AU
+import render as RD
+import qc as QC
+import compose as CP
+import tools as TOOLS
+import grid as G
+
+from PIL import Image
+
+def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
+    job = json.load(open(job_path))
+    name = job.get("name") or os.path.splitext(os.path.basename(job_path))[0]
+    out = os.path.join(workroot, name)
+    frames = os.path.join(out, "frames")
+    os.makedirs(frames, exist_ok=True)
+    report = [f"job: {name}", f"format: {fmt or job.get('format', 'short')}", ""]
+
+    tl = TL.Timeline.from_job(job)
+    report.append(f"beats: {len(tl.beats)}")
+
+    # ---- 1. media
+    assets = job.get("assets_dir") or os.path.join(
+        os.path.dirname(os.path.abspath(job_path)), "assets")
+    credits, missing = [], []
+    for b in tl.beats:
+        p = b.image if os.path.isabs(b.image) else os.path.join(assets, b.image)
+        if not os.path.exists(p):
+            missing.append(b.image)
+            b.image = None
+        else:
+            b.image = p
+        if b.__dict__.get("credit"):
+            credits.append({"beat": b.id, "credit": b.credit})
+    if missing:
+        raise FileNotFoundError(f"missing images: {missing} — run scripts/fetch_assets.py")
+    report.append(f"images ok: {len(tl.beats) - len(missing)}/{len(tl.beats)}")
+
+    # ---- 2. voice
+    lengths = {}
+    narration = []
+    for b in tl.beats:
+        if b.narration and os.path.exists(b.narration):
+            lengths[b.id] = AU.dur(b.narration)
+    tl.build(lengths)
+    for b in tl.beats:
+        if b.narration and os.path.exists(b.narration):
+            narration.append((b.narration, b.start_frame / tl.fps))
+    report.append(f"duration: {tl.duration:.2f}s  ({tl.total_frames} frames @ {tl.fps})")
+
+    # ---- 3-4. frames
+    total_frames = tl.total_frames
+    cache = {}
+    for i, b in enumerate(tl.beats):
+        src = Image.open(b.image).convert("RGB")
+        cache[i] = src
+    report.append("rendering frames...")
+    for f in range(total_frames):
+        idx = 0
+        for i, b in enumerate(tl.beats):
+            if f >= b.start_frame:
+                idx = i
+        b = tl.beats[idx]
+        local = (f - b.start_frame) / max(1, b.frames - 1)
+        local = max(0.0, min(1.0, local))
+        img = CP.frame_for(b, cache[idx], local, idx, len(tl.beats),
+                           credit=(f"image {idx+1}/{len(tl.beats)}"))
+        # transitions on the first 8 frames of a beat
+        if idx > 0 and f - b.start_frame < 8:
+            import transition as TR
+            img = TR.whip_pan(img, (f - b.start_frame) / 8.0, 1 if idx % 2 else -1, 0.42)
+        if f < tl.head_frames:
+            import transition as TR
+            img = TR.fade_from_black(img, f / max(1, tl.head_frames - 1))
+        if f > total_frames - tl.tail_frames:
+            import transition as TR
+            img = TR.fade_to_black(img, (f - (total_frames - tl.tail_frames)) / max(1, tl.tail_frames - 1))
+        img.save(os.path.join(frames, f"f{f:05d}.png"), compress_level=1)
+    report.append(f"frames written: {total_frames}")
+
+    # ---- 5. audio
+    voice = os.path.join(out, "voice.wav")
+    AU.build_voice(narration, tl.duration, voice)
+    cut_times = [b.start_frame / tl.fps for b in tl.beats[1:]]
+    imp = os.path.join(out, "impacts.wav")
+    AU.build_impacts(cut_times, tl.duration, out=imp)
+    room = os.path.join(out, "room.wav")
+    AU.build_room(tl.duration, out=room)
+    bed = job.get("music")
+    if bed and not os.path.isabs(bed):
+        bed = os.path.join(assets, bed)
+    if bed and not os.path.exists(bed):
+        report.append(f"WARNING music not found: {bed} — mixing without it")
+        bed = None
+    mixed = os.path.join(out, "mix.wav")
+    AU.master(voice, imp, room, tl.duration, mixed, bed=bed,
+              bed_gain=job.get("music_gain", 0.17))
+    report.append(f"mix: voice + {len(cut_times)} impacts + room" + (" + bed" if bed else ""))
+
+    # ---- 6. encode + QC
+    mp4 = os.path.join(out, f"{name}.mp4")
+    RD.encode(frames, tl.fps, mp4, audio=mixed, crf=job.get("crf", 19))
+    check = QC.check(mp4, expect_frames=total_frames, fps=tl.fps)
+    report.append(f"encoded: {check['size_mb']} MB  {check['duration']:.2f}s")
+    report.append(f"qc: {'PASS' if check['ok'] else 'FAIL — ' + '; '.join(check['problems'])}")
+
+    # ---- 7. evidence
+    tl.save(os.path.join(out, "timeline.json"))
+    json.dump(credits, open(os.path.join(out, "credits.json"), "w"), indent=1)
+    json.dump(check, open(os.path.join(out, "qc.json"), "w"), indent=1)
+    RD.cleanup(frames)
+
+    summary = {"name": name, "file": mp4, "ok": check["ok"],
+               "duration": check["duration"], "size_mb": check["size_mb"],
+               "lufs": check.get("lufs"), "frames": check.get("frames"),
+               "beats": len(tl.beats), "problems": check["problems"]}
+    json.dump(summary, open(os.path.join(out, "summary.json"), "w"), indent=1)
+    open(os.path.join(out, "report.txt"), "w").write("\n".join(report) + "\n")
+    return summary
+
+if __name__ == "__main__":
+    try:
+        r = run(sys.argv[1])
+        print("\n".join(f"{k}: {v}" for k, v in r.items()))
+        sys.exit(0 if r["ok"] else 1)
+    except Exception:
+        traceback.print_exc()
+        sys.exit(2)

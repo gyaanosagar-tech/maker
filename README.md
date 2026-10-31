@@ -1,5 +1,9 @@
 # maker
 
+**One repo that makes videos.** Three source repos for knowledge, one engine
+that actually renders, and a truth table that says what is available before
+anything is attempted.
+
 A public home for the tools we use to **make** short-form video.
 
 One repo, many sources. Each source lives in its own folder under `skills/`,
@@ -35,6 +39,77 @@ docs/WORKFLOWS.md     runner limits, secrets, what bites
 
 **Publishing is deliberately not here.** The upload bot lives in its own
 **private** repo and is invoked from outside. This repo only *makes* things.
+
+---
+
+---
+
+## The engine
+
+`engine/` is the part that renders. Everything else in this repo is reference
+material it reads from.
+
+```
+engine/
+  core/
+    grid.py        1080x1920 design grid — every coordinate is a fraction, never a pixel
+    timeline.py    shots in FRAMES; seconds derived. The fix for every sync drift.
+    grade.py       per-image auto-exposure + vignette + scrim
+    kburns.py      6 moves, rotating, clamped so a crop can never pad black
+    text.py        measured type — fitted and wrapped before it is drawn
+    compose.py     one frame: image -> grade -> move -> scrim -> type
+    transition.py  whip pan, impact flash, fades
+    audio.py       voice at frame offsets, impact on every cut, room, bed, -14 LUFS
+    render.py      frames -> mp4
+    qc.py          probe the real file; refuse to report success on a bad one
+    tools.py       every capability we own, and whether it is actually installed
+    build.py       the pipeline that ties it together
+  scripts/
+    render.py      render a job
+    fetch_assets.py  CC0/PD/CC BY only, credit written at download time
+    status.py      what can this machine do, right now
+```
+
+### Render a video
+
+```bash
+python3 engine/scripts/render.py jobs/demo.json
+```
+
+Output lands in `out/<job>/`: the mp4, plus `timeline.json`, `credits.json`,
+`qc.json`, `summary.json`, `report.txt`. Evidence, every time.
+
+On GitHub: **Actions → engine → Run workflow** (that runner has 4 vCPU / 16 GB;
+the local box does not).
+
+### A job file
+
+```json
+{
+  "name": "my_video",
+  "music_query": "tense cinematic percussion",
+  "beats": [
+    {"id": "b1", "query": "capsicum annuum macro", "tag": "STEP 1",
+     "line": "Capsaicin binds TRPV1", "narration": "vo/b1.wav"},
+    {"id": "b2", "image": "local_file.jpg", "line": "Not heat. A trick.",
+     "narration": "vo/b2.wav"}
+  ]
+}
+```
+
+`query` fetches a licensed image. `image` uses one you already have. Either way
+the credit is recorded.
+
+### What the engine refuses to do
+
+- Use an image whose licence is unknown, NC, or ND.
+- Report success when the file fails probe.
+- Pretend a tool is installed when it is not — run `status.py` and it says.
+- Ship text that overflows its safe area.
+
+See **[engine/CAPABILITIES.md](engine/CAPABILITIES.md)** for the full matrix:
+what each source repo contributes, what was carried over from the old studio
+tooling, and what was deliberately left out with the reason.
 
 ---
 

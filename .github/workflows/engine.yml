@@ -1,0 +1,61 @@
+name: engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job file to render
+        default: jobs/demo.json
+        required: true
+  push:
+    paths:
+      - "engine/**"
+      - "jobs/**"
+      - ".github/workflows/engine.yml"
+
+jobs:
+  render:
+    runs-on: ubuntu-latest          # public repo: 4 vCPU / 16 GB
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core espeak-ng
+          pip install --quiet pillow numpy requests
+
+      - name: What can this runner do?
+        run: python3 engine/scripts/status.py
+
+      - name: Render
+        run: |
+          mkdir -p out
+          python3 engine/scripts/render.py "${{ github.event.inputs.job || 'jobs/demo.json' }}" --out out
+
+      - name: Quality report
+        if: always()
+        run: |
+          echo '### Render report' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat out/*/report.txt 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "no report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-${{ github.run_number }}
+          path: |
+            out/**/*.mp4
+            out/**/report.txt
+            out/**/qc.json
+            out/**/timeline.json
+            out/**/credits.json
+          retention-days: 14
+          if-no-files-found: warn

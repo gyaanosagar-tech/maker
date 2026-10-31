@@ -1,0 +1,15 @@
+{
+ "name": "engine_demo",
+ "format": "short",
+ "head_seconds": 0.5,
+ "tail_seconds": 1.6,
+ "music_gain": 0.17,
+ "beats": [
+  {"id": "b1", "image": "img1.jpg", "tag": "TEST", "line": "Engine check",
+   "pad": 0.35, "move": 0},
+  {"id": "b2", "image": "img2.jpg", "tag": "GRID", "line": "Every pixel measured",
+   "pad": 0.35, "move": 3},
+  {"id": "b3", "image": "img3.jpg", "tag": "READY", "line": "Nothing assumed",
+   "pad": 0.35, "move": 4}
+ ]
+}
