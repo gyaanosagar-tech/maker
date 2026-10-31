@@ -7,6 +7,10 @@ on:
         description: Job file to render
         default: jobs/demo.json
         required: true
+      fetch:
+        description: Fetch licensed media first (true/false)
+        default: "false"
+        required: false
   push:
     paths:
       - "engine/**"
@@ -53,6 +57,10 @@ jobs:
             "https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srsearch=pepper" || echo "curl failed: $?"
           echo "--- generic internet ---"
           curl -sS -m 15 -o /dev/null -w "http=%{http_code}\n" https://api.github.com || echo "curl failed: $?"
+
+      - name: Fetch licensed assets
+        if: ${{ github.event.inputs.fetch == 'true' }}
+        run: python3 engine/scripts/fetch_assets.py --job "${{ github.event.inputs.job }}" --what both
 
       - name: Render
         run: |
