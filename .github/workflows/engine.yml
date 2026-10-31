@@ -33,6 +33,18 @@ jobs:
       - name: What can this runner do?
         run: python3 engine/scripts/status.py
 
+      - name: Probe media sources
+        run: |
+          echo "--- openverse ---"
+          curl -sS -m 25 -o /tmp/ov.json -w "http=%{http_code} time=%{time_total}s size=%{size_download}\n" \
+            "https://api.openverse.org/v1/images/?q=pepper&page_size=2&license=cc0" || echo "curl failed: $?"
+          head -c 300 /tmp/ov.json 2>/dev/null; echo
+          echo "--- wikimedia (fallback) ---"
+          curl -sS -m 25 -o /dev/null -w "http=%{http_code} time=%{time_total}s\n" \
+            "https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srsearch=pepper" || echo "curl failed: $?"
+          echo "--- generic internet ---"
+          curl -sS -m 15 -o /dev/null -w "http=%{http_code}\n" https://api.github.com || echo "curl failed: $?"
+
       - name: Render
         run: |
           mkdir -p out
