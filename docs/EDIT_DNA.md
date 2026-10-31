@@ -70,12 +70,34 @@ again. V3 does the same in miniature: 0.52 / 0.96 / 1.44 / 1.88 — a rhythm of
 
 A constant 3–4 s shot length — what our engine does today — is the tell.
 
-### 5. Cuts are **not** on the music grid
-V1's audio has onsets at a clean **1.0 s** interval (14 onsets, 8 gaps of exactly 1.0 s).
-The cuts sit an average of **280 ms off that grid**, drifting up to 470 ms.
+### 5. Every cut is locked to the audio grid — and I got this wrong the first time
 
-So the editing is **not** beat-matching. It is **narrated**: a cut happens when the line
-or the idea changes. Beat-syncing this material would make it worse.
+**Correction.** My first pass fitted a 1.0 s grid, found a 280 ms drift, and wrote
+"cuts are not beat-matched". That was wrong. The 1.0 s "onsets" were the *loud*
+accents; the actual pulse is much faster.
+
+Measured properly (10 ms resolution onsets vs 96×170 frame-difference cuts):
+
+```
+pulse: 0.13 s   (25 gaps of 0.13, 14 of 0.14, 11 of 0.12)  -> ~462 BPM feel
+cuts:  25
+offset mean 56 ms | median 37 ms | 10/25 within one frame (33 ms)
+       -> 92 % land within 150 ms
+```
+
+Concrete hits: cut 3.37 → onset 3.37 (3 ms). Cut 5.27 → 5.26 (7 ms).
+Cut 6.07 → 6.06 (7 ms). Cut 11.03 → 11.02 (13 ms). Cut 12.47 → 12.48 (13 ms).
+
+**So: cuts are beat-matched, hard.** The editing is a drum edit. The apparent
+"narrative" cuts are narrative *and* on the grid, because the track was written
+or cut to support them.
+
+The red flashes and black stutters land on the grid too — 10 ms, 50 ms, 70 ms,
+120 ms — with one deliberate 390 ms anticipation.
+
+**Rule for the engine:** cut on the beat, not on the beat plus an arbitrary pad.
+`timeline.py` currently derives shot length from narration duration + `pad`, which
+can never land on a grid. For this format the beat grid has to drive it.
 
 ### 6. Audio is loud, dense and flat
 −13.3 to −14.2 LUFS with true peak at 0 dBFS. V1's LRA of **4.8 LU** means it is
@@ -88,6 +110,75 @@ Our engine targets −14 LUFS with room tone at 0.30 and impacts at 0.42. That i
 Every frame carries the handle + Instagram glyph, **top or bottom corner**, ~30 px,
 white, 90 % opacity. It is not a watermark added later — it is part of the layout,
 present on the black cards too, and it survives every cut.
+
+---
+
+## How it is actually built — the technique underneath
+
+All three are the same method wearing different clothes. It is not "editing
+footage". **It is a poster per beat, cut to a drum track.**
+
+### The unit: one collage, four layers
+
+Every shot is assembled from the same four slots, in this order:
+
+| Layer | What it is | V1 | V2 | V3 |
+|---|---|---|---|---|
+| 1. Ground | black or a photographic plate | black | cloud/sky plate | black |
+| 2. Subject | one cut-out photographic element | Dark God artwork | silhouette figure, hand, samurai | Iron Man still |
+| 3. Accent | **one** saturated red object | red title texture | torn red paper strip behind the figure | (none — white type instead) |
+| 4. Type | the loudest layer | WISDOM | KILL / SHRINE / MALEVOLENT | PAPER / ROCKET / JARVIS |
+
+Colour discipline: layers 1 and 2 are desaturated to near-grey, layer 3 is the
+**only** thing with saturation, layer 4 is either that same red or pure white.
+That is why the average saturation is 5/255 — red is scarce, so it reads as loud.
+
+### The four moves, repeated
+
+1. **Cut-out collage.** Subjects are silhouetted or knocked out of their
+   background and stacked. In V2 the figure is pure black in front of a grey sky
+   plate with a **torn red paper strip** wedged between them — the tear edge is
+   visible, so it reads as paper, not as a colour grade.
+2. **Type as a window (knockout).** `MALEVOLENT` in V2 is not red text — the
+   letters are a **mask**, and the photograph shows through them. `WISDOM` in V1
+   is the inverse: the letters are solid, with a **grunge/ink texture inside the
+   fill**, and the countdown chip burns through them.
+3. **Palette strobe.** V1 holds one still frame and strobes its *treatment*, not
+   its position:
+
+   ```
+   0.00  BLACK
+   2.33  RED      <- title lands, letters + red wash
+   3.50  grey/art <- back to normal
+   8.17  BLACK    (17 frames)
+   8.67  BLACK    (second stutter)
+   9.67  RED      (flash)
+   10.33 RED      (flash)
+   11.33 RED      (flash)
+   12.50 RED      (flash)
+   ```
+
+   Four red flashes in the last 3 s, each on the grid. A 0.13 s pulse with a
+   0.1–0.2 s red flash on the accent is the cheapest way to make a static image
+   feel like it is exploding.
+4. **Withhold.** V2 shows nothing but faint red letters for 7.8 s of its 28.9 s.
+   V1 opens on 1.2 s of black. V3 opens on four black flashes. **None of them
+   open on the image.** The picture is the reward, and it arrives late.
+
+### The assembly pipeline they most likely used
+
+```
+1. pick the track, find the grid            -> 0.13 s pulse here
+2. lay the grid on the timeline             -> every cut and effect snaps to it
+3. build N posters (one still each)         -> collage + type + one accent
+4. cut the posters on the grid              -> 1–2 cuts/sec, bursts at accents
+5. add the strobe events                    -> red flash / black stutter / invert
+6. type on syllables                        -> word appears when the line hits
+7. handle chrome last                       -> corner, always on, on black cards too
+8. master loud and flat                     -> -13 to -14 LUFS, true peak 0 dBFS
+```
+
+Step 3 is where the time goes. The cutting is mechanical once the grid exists.
 
 ---
 
@@ -116,7 +207,7 @@ present on the black cards too, and it survives every cut.
 | Black cards | none | open, mid, and 5.4 s end card | ❌ missing entirely |
 | Handle chrome | credit line at 0.965 | handle + glyph, corner, always on | ⚠️ close, wrong shape |
 | Loudness | −14 LUFS, gentle | −13 to −14 LUFS, hard-compressed | ⚠️ needs more compression |
-| Beat sync | impacts on cuts | cuts deliberately off-grid | ⚠️ keep, but for the other formats |
+| Beat sync | impacts on **cut frames**, no grid | every cut on a 0.13 s pulse | ❌ needs a real grid, not narration+pad |
 
 ---
 
