@@ -41,23 +41,32 @@ def status() -> dict:
     s["python"]   = _which("python3", "python")
     s["fonts"]    = os.path.isdir(os.environ.get("MAKER_FONTS",
                                     os.path.expanduser("~/assets/fonts")))
-    s["skills"]   = {d: os.path.isdir(os.path.join(
-                        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "skills", d))
-                     for d in ("openmontage", "hyperframes", "earshot")}
+    s["skills"]   = {d: os.path.isdir(repo_root(d)) for d in ("openmontage", "hyperframes", "earshot")}
     s["network"]  = _net()
     return s
 
+def repo_root(sub: str) -> str:
+    """skills/<sub> lives at the repo root, four levels above core/."""
+    here = os.path.dirname(os.path.abspath(__file__))          # .../engine/core
+    return os.path.normpath(os.path.join(here, "..", "..", "skills", sub))
+
 def _net():
+    """Probe a real endpoint with a real request.
+
+    A bare GET on a base URL returns 400/403 and used to look like 'offline'
+    on a runner that was perfectly online. Ask for something specific."""
     try:
-        urllib.request.urlopen("https://api.openverse.org/v1/", timeout=6)
-        return True
-    except Exception:
-        return False
+        req = urllib.request.Request(
+            "https://api.openverse.org/v1/images/?q=water&page_size=1&license=cc0",
+            headers={"User-Agent": "maker/1.0 (+video engine)"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status == 200
+    except Exception as e:
+        return f"unreachable ({type(e).__name__})"
 
 # ---------------------------------------------------------------- media search
 
-LICENSES = ("cc0", "pdm", "by")          # never nc, never nd, never unknown
+LICENSES = ("cc0", "pdm", "by", "by-sa")   # never nc, never nd, never unknown
 
 def _ov(kind: str, q: str, n: int = 12) -> list:
     """Openverse — CC0 / public-domain / CC BY only. Returns credit records."""
@@ -68,6 +77,11 @@ def _ov(kind: str, q: str, n: int = 12) -> list:
         data = json.load(r)
     out = []
     for x in data.get("results", []):
+        if x.get("watermarked") or x.get("deleted_image") or x.get("removed_from_source"):
+            continue                       # unusable regardless of licence
+        lic = (x.get("license") or "").lower()
+        if lic not in LICENSES:
+            continue                       # belt and braces: filter client-side too
         out.append({
             "id": x.get("id"),
             "title": x.get("title") or "",
@@ -77,7 +91,10 @@ def _ov(kind: str, q: str, n: int = 12) -> list:
             "source": x.get("source") or x.get("foreign_landing_url"),
             "url": x.get("url"),
             "landing": x.get("foreign_landing_url"),
-            "attribution": f'"{x.get("title") or ""}" by {x.get("creator") or "unknown"} '
+            # Openverse returns a ready attribution on some endpoints; build our
+            # own when it does not, so a credit always exists.
+            "attribution": x.get("attribution") or
+                           f'"{x.get("title") or ""}" by {x.get("creator") or "unknown"} '
                            f'({(x.get("license") or "").upper()} {x.get("license_version") or ""}) '
                            f'via {x.get("source") or "Openverse"}',
         })
@@ -194,7 +211,7 @@ def report() -> str:
         ("piper",      s["piper"],   "offline voice"),
         ("espeak",     s["espeak"],  "offline voice (fallback)"),
         ("fonts",      s["fonts"],   "typography"),
-        ("network",    s["network"], "Openverse search (CC0/PD/CC BY)"),
+        ("network",    s["network"] is True, "Openverse search (CC0/PD/CC BY)"),
     ]
     for name, val, role in rows:
         lines.append(f"{name:17s} {'yes' if val else 'no':7s}  {role}")
@@ -202,4 +219,6 @@ def report() -> str:
         lines.append(f"skills/{k:<10s} {'yes' if v else 'no':7s}  reference material")
     lines.append("")
     lines.append(f"voice: {tts_available()}")
+    if s["network"] is not True:
+        lines.append(f"network: {s['network']}")
     return "\n".join(lines)

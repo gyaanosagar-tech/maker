@@ -54,10 +54,14 @@ together, or neither.
 
 ## The rules baked into the code
 
+0. **The truth table is honest.** `status.py` probes with a real request. This
+   sandbox blocks `api.openverse.org` (github.com and google resolve, openverse
+   times out) — so `network: unreachable` here is the sandbox, not the code.
+   On the GitHub runner it resolves. Verify there, not here.
 1. **Frames first, seconds derived.** `core/timeline.py`. This is the fix for every sync drift.
 2. **Every image measured and corrected.** `core/grade.py:auto_expose`. One fixed filter across mixed sources is what makes a montage look cheap.
 3. **Text measured before drawn.** `core/text.py:fit/wrap`. Nothing ships clipped.
-4. **Only CC0 / PD / CC BY.** `core/tools.py:LICENSES`. Hard-coded filter, no override flag.
+4. **Only CC0 / PD / CC BY / CC BY-SA.** `core/tools.py:LICENSES`. Hard-coded filter, no override flag.
 5. **Attribution written at download time**, not reconstructed later.
 6. **QC refuses to lie.** `core/qc.py` probes the actual file; `ok:false` is a real failure.
 7. **Missing tool = stated, not simulated.** Every adapter reports absence.
