@@ -1,0 +1,23 @@
+{
+  "slug": "realclips",
+  "fps": 30,
+  "handle": "@maker.shorts",
+  "credit": "Footage: ACC Digital Network (CC BY 4.0) / Jarek Tuszynski (CC BY 4.0) / Ted Kerwin (CC BY 2.0)",
+  "title_line1": "3 CLIPS.",
+  "title_line2": "ONE IS NOT HUMAN",
+  "title_color1": [255, 255, 255],
+  "title_color2": [232, 26, 26],
+  "items": [
+    {"label": "The kickflip"},
+    {"label": "The penalty save"},
+    {"label": "The jump"}
+  ],
+  "shots": [
+    {"dir": "jobs/realclips/shots/C", "reveal": 1, "line": "A kickflip, in slow motion, landed clean."},
+    {"dir": "jobs/realclips/shots/D", "reveal": 2, "line": "The keeper reads it. The striker does not."},
+    {"dir": "jobs/realclips/shots/A", "reveal": 3, "line": "Now watch where his head is."},
+    {"dir": "jobs/realclips/shots/B", "reveal": 3, "line": "North Carolina, 1983. That is the winner."}
+  ],
+  "bed": "jobs/burst/assets/bed.wav",
+  "lufs": -11.0
+}
