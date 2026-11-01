@@ -1,0 +1,89 @@
+name: earshot — hear what we made
+
+# Runs earshot against a video and reports what it actually sounds like.
+# This exists because the agent cannot hear its own output, and guessing from
+# still frames produced an episode the user rejected.
+#
+# Manual only. It is a measurement job, not a build step.
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: "Direct URL to an mp4 to analyse (leave empty to build a tone-test clip)"
+        required: false
+        default: ""
+      command:
+        description: "earshot command to run"
+        required: true
+        default: "timeline"
+        type: choice
+        options: [timeline, describe, critique, profile]
+
+permissions:
+  contents: read
+
+jobs:
+  hear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Clone earshot (not vendored — see tools/install_skills.sh)
+        run: bash tools/install_skills.sh
+
+      - name: Install earshot (CPU torch)
+        run: |
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet -e skills/earshot
+
+      - name: Doctor — what earshot can and cannot do here
+        run: earshot doctor || true
+
+      - name: Get a video to analyse
+        id: vid
+        run: |
+          mkdir -p work
+          if [ -n "${{ inputs.video_url }}" ]; then
+            curl -sL --max-time 600 -o work/in.mp4 "${{ inputs.video_url }}"
+          else
+            # deterministic test clip: tone bed + two cuts, so the run proves the
+            # pipeline even when there is no real video to hand
+            ffmpeg -v error -y \
+              -f lavfi -i "sine=frequency=220:duration=4" \
+              -f lavfi -i "color=c=black:s=1080x1920:d=4:r=30" \
+              -f lavfi -i "color=c=white:s=1080x1920:d=4:r=30" \
+              -filter_complex "[1:v][2:v]concat=n=2:v=1:a=0[v]" \
+              -map "[v]" -map 0:a -c:v libx264 -crf 28 -pix_fmt yuv420p -c:a aac -shortest work/in.mp4
+          fi
+          ls -la work/
+          ffprobe -v error -show_entries format=duration:stream=codec_type -of default=nw=1 work/in.mp4
+
+      - name: Run earshot
+        run: |
+          mkdir -p work/out
+          case "${{ inputs.command }}" in
+            timeline) earshot timeline work/in.mp4 --detail normal  2>&1 | tee work/out/timeline.txt ;;
+            describe) earshot describe work/in.mp4 --top 10         2>&1 | tee work/out/describe.txt ;;
+            critique) earshot critique work/in.mp4 --fast           2>&1 | tee work/out/critique.txt ;;
+            profile)  earshot profile work/in.mp4                   2>&1 | tee work/out/profile.txt ;;
+          esac
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: earshot-${{ inputs.command }}-${{ github.run_number }}
+          path: work/out/
+          if-no-files-found: warn
+          retention-days: 30
