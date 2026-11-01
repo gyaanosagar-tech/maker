@@ -32,7 +32,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg fonts-dejavu-core fonts-liberation espeak-ng
-          pip install --quiet pillow numpy requests
+          pip install --quiet pillow numpy requests scipy librosa soundfile
           mkdir -p "$HOME/assets/fonts"
           # repo fonts if present, else the sistem ones we just installed
           if [ -d assets/fonts ]; then cp -n assets/fonts/* "$HOME/assets/fonts/" || true; fi
