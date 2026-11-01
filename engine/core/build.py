@@ -20,6 +20,7 @@ import render as RD
 import qc as QC
 import compose as CP
 import tools as TOOLS
+import burst as BU
 import grid as G
 
 from PIL import Image
@@ -93,6 +94,28 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
             narration.append((b.narration, b.start_frame / tl.fps))
     report.append(f"duration: {tl.duration:.2f}s  ({tl.total_frames} frames @ {tl.fps})")
 
+    # ---- bursts: the kinetic punches in the middle of the video
+    bursts = BU.schedule(job.get("bursts", []))
+    if job.get("auto_bursts"):
+        ab = job["auto_bursts"]
+        styles = ab.get("styles", ["flash", "glitch", "invert"])
+        every = float(ab.get("every", 2.5))
+        dur = float(ab.get("dur", 0.5))
+        t = float(ab.get("start", tl.body_start if hasattr(tl, "body_start") else 2.0))
+        i = 0
+        while t < tl.duration - 1.2:
+            bursts.append({"at": round(t, 3), "dur": dur,
+                           "style": styles[i % len(styles)],
+                           "hits": BU.default_hits(styles[i % len(styles)]),
+                           "intensity": float(ab.get("intensity", 0.8)),
+                           "word": ab.get("words", [""])[0] if ab.get("words") else ""})
+            t += every
+            i += 1
+        bursts = BU.schedule(bursts)
+    if bursts:
+        report.append("bursts: " + ", ".join(
+            f'{b["style"]}@{b["at"]:.2f}s' for b in bursts))
+
     # ---- 3-4. frames
     total_frames = tl.total_frames
     cache = {}
@@ -121,6 +144,16 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
         if f > total_frames - tl.tail_frames:
             import transition as TR
             img = TR.fade_to_black(img, (f - (total_frames - tl.tail_frames)) / max(1, tl.tail_frames - 1))
+
+        # kinetic burst on top of the composed frame
+        if bursts:
+            t_now = f / tl.fps
+            b, bt = BU.active(bursts, t_now)
+            if b is not None:
+                subs = [cache[j] for j in range(len(cache))] if b["style"] == "stack" else None
+                img = BU.apply(img, b["style"], bt, b["dur"],
+                               intensity=b["intensity"], word=b["word"],
+                               seed=f, subs=subs)
         img.save(os.path.join(frames, f"f{f:05d}.png"), compress_level=1)
     report.append(f"frames written: {total_frames}")
 

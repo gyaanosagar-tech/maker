@@ -1,0 +1,22 @@
+{
+ "name": "burst_demo",
+ "format": "short",
+ "mode": "free",
+ "head_seconds": 0.4,
+ "tail_seconds": 1.0,
+ "music": "bed.wav",
+ "music_gain": 0.5,
+ "beats": [
+  {"id":"b1","image":"p1.jpg","tag":"STEP 1","line":"Calm body","pad":1.6},
+  {"id":"b2","image":"p3.jpg","tag":"STEP 2","line":"Then a punch","pad":1.6},
+  {"id":"b3","image":"p2.jpg","tag":"STEP 3","line":"Back to calm","pad":1.6},
+  {"id":"b4","image":"p5.jpg","tag":"END","line":"Done","pad":1.2}
+ ],
+ "bursts": [
+  {"at": 2.2, "dur": 0.45, "style": "flash", "intensity": 0.9},
+  {"at": 3.6, "dur": 0.55, "style": "glitch", "intensity": 0.85},
+  {"at": 5.0, "dur": 0.70, "style": "slam", "word": "WATCH", "intensity": 0.9},
+  {"at": 6.4, "dur": 0.50, "style": "invert", "intensity": 1.0},
+  {"at": 7.8, "dur": 0.40, "style": "strobe", "intensity": 0.7}
+ ]
+}

@@ -79,6 +79,16 @@ music-driven short.
 
 ---
 
+## Bursts — effects in the middle, not throughout
+
+See **[BURSTS.md](BURSTS.md)**. Seven styles (`flash`, `glitch`, `invert`,
+`strobe`, `slam`, `stack`, `wipe`), manual by timestamp or automatic on the beat
+grid. Verified: five styles in one 7.4 s render, QC PASS, 222 frames, −14.6 LUFS.
+
+The rule from the library: **1 burst per 2–3 s, each 0.3–0.8 s, covering
+15–25 % of the timeline.** A video at full intensity throughout reads as a
+screensaver; the punch only works because of the calm around it.
+
 ## What is still missing, honestly
 
 | Missing | Why it matters | Cheap fix? |
