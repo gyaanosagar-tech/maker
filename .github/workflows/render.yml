@@ -66,8 +66,8 @@ jobs:
 
       - name: Build the HTML frame
         run: |
-          mkdir -p render
-          cat > render/index.html <<'HTML'
+          mkdir -p /tmp/render_html
+          cat > /tmp/render_html/index.html <<'HTML'
           <!doctype html>
           <html><head><meta charset="utf-8">
           <style>
@@ -106,22 +106,38 @@ jobs:
             <div class="num">01</div>
           </body></html>
           HTML
-          ls -la render/
+          ls -la /tmp/render_html/
+
+      - name: Scaffold a hyperframes project
+        run: |
+          npx --yes hyperframes@0.8.228 init render 2>&1 | tail -20
+          echo "----- what init made -----"
+          find render -maxdepth 2 -type f | head -20
+          echo "----- doctor -----"
+          npx --yes hyperframes@0.8.228 doctor 2>&1 | tail -20 || true
+
+      - name: Drop our composition in
+        run: |
+          # init makes its own example; replace whatever the entry page is
+          ENTRY=$(find render -maxdepth 2 -name "*.html" | head -1)
+          echo "entry was: $ENTRY"
+          if [ -n "$ENTRY" ]; then
+            cp "$ENTRY" render/index.orig.html
+            cp /tmp/render_html/index.html "$ENTRY"
+            echo "replaced $ENTRY"
+          else
+            mkdir -p render
+            cp /tmp/render_html/index.html render/index.html
+            ENTRY=render/index.html
+          fi
+          echo "ENTRY=$ENTRY" >> $GITHUB_ENV
 
       - name: Render with hyperframes
         run: |
-          npx --yes hyperframes@0.8.228 render render/index.html \
-            --out render/out.mp4 --duration ${{ inputs.seconds }} 2>&1 | tail -40 || \
-          npx --yes hyperframes@0.8.228 --help 2>&1 | head -40
-
-      - name: Fallback — if the CLI shape differs, screenshot the page instead
-        if: always()
-        run: |
-          if [ ! -s render/out.mp4 ]; then
-            echo "::warning::hyperframes render produced no file; capturing a still instead"
-            npx --yes hyperframes@0.8.228 shoot render/index.html --out render/still.png 2>&1 | tail -20 || true
-          fi
-          ls -la render/
+          cd render
+          npx --yes hyperframes@0.8.228 render -o out.mp4 2>&1 | tail -40 || true
+          ls -la
+          ls -la *.mp4 2>/dev/null && echo "RENDER OK" || echo "::warning::no mp4 produced"
 
       - name: Upload
         if: always()
