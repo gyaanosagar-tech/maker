@@ -23,50 +23,97 @@ and format as #2). Analysed with ffprobe/ffmpeg plus frame sampling.
 
 ## Category A — ranking compilations (RankCola, DogedogRanks)
 
-**This is exactly your `ytshort` format, and mine confirms what I suspected.**
+### CORRECTION — I was wrong about this, and the user caught it
 
-What is on screen, from the frames:
+I first wrote "there is no commentary". I had only looked at **frames**. The
+user said the videos have narration. I transcribed the audio and **he is right,
+I was wrong.**
 
-- A **persistent 1–5 list on the left edge** for the whole video, with labels
-  filled in as each clip plays. Labels are 1–2 words: `failed?` `WTF` `Ref?`
-  `Celebration 🎉` `Mythic weapon ⚔️` `level 80` `level 60`
-- A **title bar top-centre**, two lines, white on black:
-  `Ranking Worst` / `Basketball Moments` — colour change on the second line
-- A **thin progress bar at the very bottom**, colour-changing
-- A **handle watermark, bottom-centre**, semi-transparent, on every frame
-- A **country flag** in RankCola's version (🇺🇸)
-- Clips from TikTok/IG/other YouTube, cropped to 9:16, **no source credit ever**
-- **kbps is low, resolution 360×640** — these are re-encodes of re-encodes
+DogedogRanks, word-level transcript of a 58 s Short:
 
-**There is no commentary.** No voice, no face, no opinion. Frame after frame is
-the clip plus chrome. The "ranking" is a **number next to a clip**.
+```
+[ 0.00]  Bro, the hoop is bigger than you.
+[ 1.96]  I got this!
+[ 8.74]  Guess who the star player is?
+[10.98]  Let's go!
+[21.20]  Bro's aura just went to zero.
+[27.80]  I got this!
+[33.16]  Bro's footwork is actually illegal.
+[41.58]  Bro really pressed every emote button.
+[43.92]  Let's go!
+[50.12]  I got this!
+```
 
-### The measurement that proves the point
+RankCola, 30 s Short — 137 characters of speech:
 
-Loudness: **−10.4 LUFS** (RankCola) and −13.3 (Dogedog). YouTube normalises
-playback to about −14, so a −10.4 master is **pushed up to be louder than
-everything around it** in the feed. That is a distribution trick, not an
-editing choice. It is also the single most common thing these channels do.
+```
+"I got this / bro thinks it's a trampoline / such an organized shovel factory
+ / subscribe now / got this / he's doing this with incredible precision"
+```
 
-Cut rate is **low** — 0.15–0.23/sec. They do not cut fast. They hold the clip
-and let the chrome carry the attention.
+### So what is the actual structure?
 
-### What the channel says about itself
+**Not a voiceover. A spoken judgment line setting up each clip.**
 
-DogedogRanks' own description, verbatim:
+| Before the clip | During the clip |
+|---|---|
+| **one spoken line**, narration style, sets up what you are about to see | the clip plays with its own original audio |
 
-> "This channel creates ranking-style compilation videos using carefully selected
-> clips that are trimmed, edited, and enhanced with original on-screen text,
-> captions, music, sound effects, and creative transitions... All clips belong to
-> their rightful owners... This content falls under Fair Use (Section 107 of the
-> U.S. Copyright Act)..."
+- RankCola: `bro thinks it's a trampoline` → the clip plays.
+- Dogedog: `Bro's aura just went to zero.` → the clip plays.
+  `Bro really pressed every emote button.` → the clip plays.
 
-That is a **legal shield written by the channel**, not a permission from
-YouTube. And YouTube's 1 October 2026 Shorts update says the reach of exactly
-this — re-uploads "without adding anything of your own" — will be reduced, with
-"the same template applied to hundreds of clips" named explicitly.
+The line sits **inside the clip's window**, 1.5–2.5 s, one sentence, present
+tense, and it is a **judgment**, not a description.
 
-**So the format works. It just is not safe, and it is not yours.**
+### The recurring phrases — and one already in your repo
+
+| Phrase | Where | Count |
+|---|---|---|
+| **"I got this!"** | Dogedog **and** RankCola | 5× in 58 s, 3× in 30 s |
+| "Let's go!" | both | 2× |
+| "Bro's aura just went to zero" | Dogedog | 1 |
+
+**`I got this` is shared between two different channels** — a meme phrase in
+this niche, used as the fake-out before a fail: he says it, then fails.
+
+**It is already in your workspace.** `studio/FORMAT_MEMORY.md`:
+> *"use the recurring 'I got this' phrase at transitions"*
+
+You were already doing this. **The EP33/34 one-off builder dropped it.** That is
+the regression.
+
+### Is it a pasted sample?
+
+No. Cross-correlating the three "I got this" takes in the Dogedog video:
+
+```
+1.90s vs 27.75s: -0.013
+1.90s vs 50.05s:  0.026
+27.75s vs 50.05s: 0.008
+```
+
+Correlation ≈ 0 — **three separate recordings, same voice.** That is why it does
+not sound mechanical.
+
+### What is on screen
+
+- persistent 1–5 list on the left edge, filling in as clips play
+  (`failed?` `WTF` `Ref?` `Celebration 🎉` `Mythic weapon ⚔️` `level 80`)
+- two-line title bar top-centre, white on black, colour change on line 2
+- thin progress bar at the bottom
+- handle watermark bottom-centre, every frame
+- country flag (RankCola)
+- clips cropped to 9:16, **no source credit**
+
+### Measurements
+
+- **−10.4 LUFS** (RankCola), −13.3 (Dogedog). YouTube normalises playback to
+  about −14, so a −10.4 master plays louder than its neighbours.
+- **cut rate 0.15–0.23/sec** — slow. They hold the clip; the line and chrome
+  carry the attention.
+- **360×640** — a re-encode of a re-encode.
+- The clip's own audio is **not muted**.
 
 ---
 
@@ -118,7 +165,7 @@ Same problem as B, one level down.
 | | Ranking (A) | Film edits (B) | Your `ytshort` |
 |---|---|---|---|
 | Source footage | stolen | stolen | stolen |
-| Commentary | **none** | none | none |
+| Commentary | **one spoken line per clip** | none | recipe has it, build dropped it |
 | Text | list labels | subtitles | rank labels |
 | Safe? | no | **no** | no |
 | Scalable? | no | no | no |
@@ -154,7 +201,13 @@ better while it is still the format that is at risk.
 
 ## The recommendation, in one line
 
-Copy category A's **craft** — list, title bar, loudness, watermark discipline.
-Do not copy its **source model**. Add the one thing the October update asks
-for and nobody in these eight videos has: **a line of your own judgment per
-clip.**
+**Category A already does the thing I said was missing.** One spoken judgment
+line per clip, over the clip's own audio, plus a persistent list, a two-line
+title bar and a loud master.
+
+Your Type-2 recipe already contains the same idea (`"I got this"` at
+transitions). The gap is not the idea — it is that **it was implemented as a
+pasted sample and then dropped.**
+
+The rebuild is: **record one line per clip**, keep the list, keep the loudness,
+keep the bursts. That is category A done right.
