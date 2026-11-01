@@ -10,3 +10,9 @@ __pycache__/
 .DS_Store
 .venv/
 node_modules/
+
+# video jobs — built artifacts, not source
+jobs/*/build/
+jobs/*/shots/
+jobs/*/assets/
+out/
