@@ -1,0 +1,20 @@
+{
+ "name": "kinetic_test",
+ "format": "short",
+ "mode": "grid",
+ "head_seconds": 0.3,
+ "tail_seconds": 0.8,
+ "music": "bed.wav",
+ "music_gain": 0.55,
+ "weights": [2.0, 1.5, 1.0, 0.8, 0.6, 0.6, 1.0, 2.5],
+ "beats": [
+  {"id":"b1","image":"p1.jpg","tag":"","line":"ONE","pad":0},
+  {"id":"b2","image":"p2.jpg","tag":"","line":"TWO","pad":0},
+  {"id":"b3","image":"p3.jpg","tag":"","line":"THREE","pad":0},
+  {"id":"b4","image":"p4.jpg","tag":"","line":"FOUR","pad":0},
+  {"id":"b5","image":"p5.jpg","tag":"","line":"FIVE","pad":0},
+  {"id":"b6","image":"p1.jpg","tag":"","line":"SIX","pad":0},
+  {"id":"b7","image":"p3.jpg","tag":"","line":"SEVEN","pad":0},
+  {"id":"b8","image":"p2.jpg","tag":"","line":"EIGHT","pad":0}
+ ]
+}

@@ -74,9 +74,36 @@ def master(voice: str, impacts: str, room: str, total: float, out: str,
     n = len([x for x in mix.split("][")])
     chain.append(f"{mix}amix=inputs={n}:normalize=0:duration=longest,"
                  f"atrim=0:{total:.3f}[mx]")
-    chain.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11[out]")
+    # Two-pass loudnorm. Single-pass measured -19.1 LUFS on a job that asked
+    # for -14 because it normalises from a short analysis window and the bed
+    # was quiet. Measure first, then apply with the measured values.
+    chain.append(f"[mx]loudnorm=I={lufs}:TP=-1.5:LRA=11:print_format=json[out]")
     run([FF, "-y", *ins, "-filter_complex", ";".join(chain),
          "-map", "[out]", "-ar", "48000", "-ac", "2", out])
+
+def master_two_pass(voice, impacts, room, total, out, lufs=-14.0,
+                    bed=None, bed_gain=0.17, attempts=3):
+    """Mix, then measure-and-correct until the file is actually on target.
+
+    A single loudnorm pass is not reliable on sparse mixes. Loop until the
+    measured integrated loudness is within 0.7 LU of target, up to `attempts`.
+    """
+    import json as _json, re as _re, tempfile, os as _os
+
+    master(voice, impacts, room, total, out, lufs=lufs, bed=bed, bed_gain=bed_gain)
+    for _ in range(attempts - 1):
+        got = loudness(out)
+        if got == got and abs(got - lufs) <= 0.7:
+            return out
+        delta = lufs - (got if got == got else lufs)
+        gain = max(-12.0, min(12.0, delta))
+        tmp = out + ".tune.wav"
+        run([FF, "-y", "-i", out, "-af",
+             f"volume={gain:.2f}dB,loudnorm=I={lufs}:TP=-1.5:LRA=11",
+             "-ar", "48000", "-ac", "2", tmp])
+        _os.replace(tmp, out)
+    return out
+
 
 def loudness(path: str) -> float:
     r = subprocess.run([FF, "-i", path, "-af", "ebur128", "-f", "null", "-"],

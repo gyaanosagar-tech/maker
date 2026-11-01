@@ -78,7 +78,16 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
     for b in tl.beats:
         if b.narration and os.path.exists(b.narration):
             lengths[b.id] = AU.dur(b.narration)
-    tl.build(lengths)
+    if tl.mode == "grid":
+        if not tl.grid and job.get("music"):
+            import fx
+            mp = job["music"] if os.path.isabs(job["music"]) else os.path.join(assets, job["music"])
+            if os.path.exists(mp):
+                tl.grid = fx.beat_times(mp)
+                report.append(f"beat grid: {len(tl.grid)} beats detected")
+        tl.build_on_grid()
+    else:
+        tl.build(lengths)
     for b in tl.beats:
         if b.narration and os.path.exists(b.narration):
             narration.append((b.narration, b.start_frame / tl.fps))
@@ -118,7 +127,7 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
     # ---- 5. audio
     voice = os.path.join(out, "voice.wav")
     AU.build_voice(narration, tl.duration, voice)
-    cut_times = [b.start_frame / tl.fps for b in tl.beats[1:]]
+    cut_times = tl.cut_times()
     imp = os.path.join(out, "impacts.wav")
     AU.build_impacts(cut_times, tl.duration, out=imp)
     room = os.path.join(out, "room.wav")
@@ -130,8 +139,9 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
         report.append(f"WARNING music not found: {bed} — mixing without it")
         bed = None
     mixed = os.path.join(out, "mix.wav")
-    AU.master(voice, imp, room, tl.duration, mixed, bed=bed,
-              bed_gain=job.get("music_gain", 0.17))
+    AU.master_two_pass(voice, imp, room, tl.duration, mixed,
+                       lufs=job.get("lufs", -14.0), bed=bed,
+                       bed_gain=job.get("music_gain", 0.17))
     report.append(f"mix: voice + {len(cut_times)} impacts + room" + (" + bed" if bed else ""))
 
     # ---- 6. encode + QC
