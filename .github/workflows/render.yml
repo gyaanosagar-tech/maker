@@ -73,37 +73,59 @@ jobs:
           <style>
             *{margin:0;padding:0;box-sizing:border-box}
             html,body{width:1080px;height:1920px;background:#0e0e10;overflow:hidden;
-                      font-family:"DejaVu Sans",sans-serif}
+                      font-family:Inter,"DejaVu Sans",sans-serif}
+            #root{position:relative;width:1080px;height:1920px}
             .grid{position:absolute;inset:0;
                   background-image:linear-gradient(#ffffff10 1px,transparent 1px),
                                    linear-gradient(90deg,#ffffff10 1px,transparent 1px);
                   background-size:120px 120px}
-            .bar{position:absolute;left:0;top:0;width:100%;height:24px;background:#e81a1a}
+            .bar{position:absolute;left:0;top:0;width:100%;height:24px;background:#e81a1a;
+                 transform-origin:left center}
             .kicker{position:absolute;left:80px;top:180px;color:#8a8a92;
                     font-size:30px;letter-spacing:12px;text-transform:uppercase}
             .title{position:absolute;left:80px;top:250px;color:#fff;font-size:110px;
                    font-weight:bold;line-height:0.95;max-width:900px}
             .title em{font-style:normal;color:#e81a1a}
-            .rule{position:absolute;left:80px;top:700px;width:160px;height:8px;background:#e81a1a}
-            .rank{position:absolute;left:80px;top:820px;color:#fff;font-size:56px;line-height:1.6}
+            .rule{position:absolute;left:80px;top:760px;width:160px;height:8px;background:#e81a1a;
+                  transform-origin:left center}
+            .rank{position:absolute;left:80px;top:860px;color:#fff;font-size:56px;line-height:1.6}
             .rank span{color:#6a6a72}
+            .rank .row{opacity:0}
             .credit{position:absolute;left:80px;bottom:110px;color:#5c5c64;font-size:26px}
             .num{position:absolute;right:70px;bottom:90px;color:#ffffff12;font-size:420px;
                  font-weight:bold;line-height:1}
           </style></head>
           <body>
-            <div class="grid"></div>
-            <div class="bar"></div>
-            <div class="kicker">ranked</div>
-            <div class="title">THREE<br>CLIPS.<br><em>ONE IS NOT HUMAN.</em></div>
-            <div class="rule"></div>
-            <div class="rank">
-              <span>01</span> The jump<br>
-              <span>02</span> The kickflip<br>
-              <span>03</span> The save
+            <div id="root" data-composition-id="rank-test" data-duration="6"
+                 data-width="1080" data-height="1920">
+              <div class="grid"></div>
+              <div class="bar"></div>
+              <div class="kicker">ranked</div>
+              <div class="title">THREE<br>CLIPS.<br><em>ONE IS NOT HUMAN.</em></div>
+              <div class="rule"></div>
+              <div class="rank">
+                <div class="row"><span>01</span> The jump</div>
+                <div class="row"><span>02</span> The kickflip</div>
+                <div class="row"><span>03</span> The save</div>
+              </div>
+              <div class="credit">hyperframes render</div>
+              <div class="num">01</div>
             </div>
-            <div class="credit">hyperframes test render</div>
-            <div class="num">01</div>
+            <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+            <script>
+              // a registered timeline is what hyperframes seeks frame by frame
+              const tl = gsap.timeline({paused:true});
+              tl.from(".bar",   {scaleX:0, duration:0.5, ease:"power3.out"}, 0)
+                .from(".kicker",{opacity:0, y:20, duration:0.4}, 0.2)
+                .from(".title", {opacity:0, y:40, duration:0.7, ease:"power2.out"}, 0.35)
+                .from(".rule",  {scaleX:0, duration:0.4, ease:"power3.out"}, 1.1)
+                .to(".row",     {opacity:1, duration:0.35, stagger:0.45}, 1.3)
+                .from(".num",   {opacity:0, x:40, duration:0.8}, 0.6)
+                .to(".title em",{color:"#ffffff", duration:0.6}, 4.2)
+                .to("#root",    {opacity:0, duration:0.5}, 5.5);
+              window.__timelines = window.__timelines || {};
+              window.__timelines["rank-test"] = tl;
+            </script>
           </body></html>
           HTML
           ls -la /tmp/render_html/
