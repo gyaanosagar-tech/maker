@@ -103,3 +103,4 @@ None of these block making a video in the poster-collage format today.
 | Grid mode render | 8 shots over 8.1 s, 17 beats detected, QC **PASS** |
 | Shot curve | 1.5 → 1.0 → 0.5 ×4 → 2.0 s (accelerate-then-release) |
 | Two-pass loudness | −19.1 LUFS corrected to −15.3 LUFS against a −14 target |
+| **Same render on GitHub Actions** | run success — 8.1 s, 243 frames, −15.3 LUFS, QC PASS, 1.65 MB artifact |
