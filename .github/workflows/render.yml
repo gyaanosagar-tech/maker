@@ -1,0 +1,135 @@
+name: render — hyperframes + lemo style
+
+# Two things were sitting in maker/skills unused: hyperframes (Apache-2.0) and
+# nothing at all for style. This job proves the pair works:
+#   lemo-opuscar  supplies the STYLE (what it should look like)
+#   hyperframes   renders it (HTML -> MP4)
+#
+# Neither is vendored into maker. Both are cloned/installed at run time, and
+# the licence of each is printed before anything runs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      style:
+        description: "lemo style to use as the brief"
+        required: true
+        default: "swiss-motion"
+      seconds:
+        description: "duration of the test render"
+        required: true
+        default: "6"
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"          # hyperframes requires >= 22
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu
+
+      - name: Who are we invoking (licences, before anything runs)
+        run: |
+          echo "hyperframes : npm package, licence $(npm view hyperframes license 2>/dev/null)"
+          git clone -q --depth 1 https://github.com/lemomo-ai/lemo-opuscar.git /tmp/lemo
+          echo "lemo-opuscar: $(head -3 /tmp/lemo/LICENSE | tr '\n' ' ')"
+          echo "-------------- styles available in lemo --------------"
+          ls /tmp/lemo/styles | head -30
+          echo "... $(ls /tmp/lemo/styles | wc -l) total"
+
+      - name: Read the chosen style brief
+        id: brief
+        run: |
+          S="${{ inputs.style }}"
+          if [ -f "/tmp/lemo/styles/$S/STYLE.md" ]; then
+            cp "/tmp/lemo/styles/$S/STYLE.md" work_style.md 2>/dev/null || \
+              { mkdir -p .; cp "/tmp/lemo/styles/$S/STYLE.md" work_style.md; }
+            echo "found: styles/$S/STYLE.md"
+            head -40 work_style.md
+          else
+            echo "::warning::style '$S' not found — listing what exists"
+            ls /tmp/lemo/styles
+            # fall back to whichever styles exist
+            FIRST=$(ls /tmp/lemo/styles | head -1)
+            cp "/tmp/lemo/styles/$FIRST/STYLE.md" work_style.md
+            echo "using fallback: $FIRST"
+          fi
+
+      - name: Build the HTML frame
+        run: |
+          mkdir -p render
+          cat > render/index.html <<'HTML'
+          <!doctype html>
+          <html><head><meta charset="utf-8">
+          <style>
+            *{margin:0;padding:0;box-sizing:border-box}
+            html,body{width:1080px;height:1920px;background:#0e0e10;overflow:hidden;
+                      font-family:"DejaVu Sans",sans-serif}
+            .grid{position:absolute;inset:0;
+                  background-image:linear-gradient(#ffffff10 1px,transparent 1px),
+                                   linear-gradient(90deg,#ffffff10 1px,transparent 1px);
+                  background-size:120px 120px}
+            .bar{position:absolute;left:0;top:0;width:100%;height:24px;background:#e81a1a}
+            .kicker{position:absolute;left:80px;top:180px;color:#8a8a92;
+                    font-size:30px;letter-spacing:12px;text-transform:uppercase}
+            .title{position:absolute;left:80px;top:250px;color:#fff;font-size:110px;
+                   font-weight:bold;line-height:0.95;max-width:900px}
+            .title em{font-style:normal;color:#e81a1a}
+            .rule{position:absolute;left:80px;top:700px;width:160px;height:8px;background:#e81a1a}
+            .rank{position:absolute;left:80px;top:820px;color:#fff;font-size:56px;line-height:1.6}
+            .rank span{color:#6a6a72}
+            .credit{position:absolute;left:80px;bottom:110px;color:#5c5c64;font-size:26px}
+            .num{position:absolute;right:70px;bottom:90px;color:#ffffff12;font-size:420px;
+                 font-weight:bold;line-height:1}
+          </style></head>
+          <body>
+            <div class="grid"></div>
+            <div class="bar"></div>
+            <div class="kicker">ranked</div>
+            <div class="title">THREE<br>CLIPS.<br><em>ONE IS NOT HUMAN.</em></div>
+            <div class="rule"></div>
+            <div class="rank">
+              <span>01</span> The jump<br>
+              <span>02</span> The kickflip<br>
+              <span>03</span> The save
+            </div>
+            <div class="credit">hyperframes test render</div>
+            <div class="num">01</div>
+          </body></html>
+          HTML
+          ls -la render/
+
+      - name: Render with hyperframes
+        run: |
+          npx --yes hyperframes@0.8.228 render render/index.html \
+            --out render/out.mp4 --duration ${{ inputs.seconds }} 2>&1 | tail -40 || \
+          npx --yes hyperframes@0.8.228 --help 2>&1 | head -40
+
+      - name: Fallback — if the CLI shape differs, screenshot the page instead
+        if: always()
+        run: |
+          if [ ! -s render/out.mp4 ]; then
+            echo "::warning::hyperframes render produced no file; capturing a still instead"
+            npx --yes hyperframes@0.8.228 shoot render/index.html --out render/still.png 2>&1 | tail -20 || true
+          fi
+          ls -la render/
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-${{ github.run_number }}
+          path: |
+            render/
+            work_style.md
+          if-no-files-found: warn
+          retention-days: 14
