@@ -8,9 +8,16 @@ mkdir -p "$SK"
 
 clone_at () {  # url dir sha
   local url=$1 dir=$2 sha=$3
-  if [ ! -d "$SK/$dir/.git" ]; then
-    git clone -q "$url" "$SK/$dir"
+  if [ -d "$SK/$dir" ]; then
+    # already present (vendored in this repo, or restored from cache)
+    if git -C "$SK/$dir" rev-parse --git-dir >/dev/null 2>&1; then
+      git -C "$SK/$dir" fetch -q origin >/dev/null 2>&1 || true
+      git -C "$SK/$dir" checkout -q "$sha" 2>/dev/null || true
+    fi
+    echo "  $dir present (reusing)"
+    return 0
   fi
+  git clone -q "$url" "$SK/$dir"
   git -C "$SK/$dir" fetch -q --depth 1 origin "$sha" 2>/dev/null || git -C "$SK/$dir" fetch -q origin
   git -C "$SK/$dir" checkout -q "$sha"
   echo "  $dir @ ${sha:0:8}"
