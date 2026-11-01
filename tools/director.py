@@ -65,7 +65,7 @@ PLAN = {
                     ("earshot", "timeline --cues", "does the picture land on the sound")],
     "titles":      [("engine/text", "two-line title + rank list", "reference chrome")],
     "energy":      [("engine/burst", "auto_bursts", "mid-video punches, 15-25% of runtime")],
-    "transition", "transitions": [("engine/transition", "pick per seam", "12 effects")],
+    "transitions": [("engine/transition", "pick per seam", "12 effects")],
     "look":        [("engine/grade", "per-shot grade", "match shots to each other")],
     "sfx":         [("earshot", "forge <spec>", "generate the SFX in code, no samples")],
     "render":      [("engine/build", "frames -> mp4", "or hyperframes if HTML-driven")],
