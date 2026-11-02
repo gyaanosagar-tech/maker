@@ -165,13 +165,29 @@ jobs:
         run: |
           set -e
           MP4=$(find artifact -name '*.mp4' | head -1)
+          mkdir -p hear
           echo "film: $MP4"
-          echo "### What it sounds like" >> $GITHUB_STEP_SUMMARY
+
+          # write to the Log AND the run summary: the summary is only visible in
+          # the browser, and a job nobody can read from the API is a black box.
+          say () { tee -a "$GITHUB_STEP_SUMMARY"; }
+
+          echo "### What it sounds like" | say
           echo '```' >> $GITHUB_STEP_SUMMARY
-          earshot measure "$MP4" >> $GITHUB_STEP_SUMMARY
-          earshot timeline "$MP4" --detail low | head -30 >> $GITHUB_STEP_SUMMARY
+          earshot measure "$MP4" --json --out hear/measure.json | say
+          earshot timeline "$MP4" --detail low --json --out hear/timeline.json | head -20 | say
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "### Scorecard" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Scorecard" | say
           echo '```' >> $GITHUB_STEP_SUMMARY
-          earshot critique "$MP4" --fast | head -40 >> $GITHUB_STEP_SUMMARY || true
+          (earshot critique "$MP4" --fast --json --out hear/critique.json || true) | head -40 | say
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload the listening report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hear-${{ github.run_number }}
+          path: hear/*.json
+          retention-days: 14
+          if-no-files-found: warn
