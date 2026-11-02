@@ -15,10 +15,36 @@ on:
     paths:
       - "engine/**"
       - "jobs/**"
+      - "tests/**"
       - ".github/workflows/engine.yml"
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Cheap gate first. The loudness bug that turned five runs red would have been
+  # caught here in 2 seconds instead of on a 6-minute render.
+  # ---------------------------------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          pip install --quiet pytest pillow numpy requests
+
+      - name: Unit tests
+        run: python3 -m pytest tests/ -v
+
   render:
+    needs: test
     runs-on: ubuntu-latest          # public repo: 4 vCPU / 16 GB
     timeout-minutes: 60
     steps:
@@ -74,6 +100,10 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat out/*/report.txt 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "no report" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+          echo '### QC' >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat out/*/qc.json 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "no qc" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload
         if: always()
@@ -88,3 +118,60 @@ jobs:
             out/**/credits.json
           retention-days: 14
           if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # Ears. The technical gate (qc.py) says the file is valid; this says whether it
+  # is any good. Non-blocking on purpose: a taste score is information, not a
+  # build failure — but it is written to the run summary either way.
+  # ---------------------------------------------------------------------------
+  hear:
+    needs: render
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    env:
+      EARSHOT_HOME: ${{ github.workspace }}/.earshot-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Model cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.earshot-cache
+          key: earshot-models-${{ hashFiles('skills/earshot/pyproject.toml') }}
+
+      - name: Install earshot (CPU torch)
+        run: |
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet -e skills/earshot
+          earshot doctor --fetch
+          earshot doctor | tail -3
+
+      - name: Download the render
+        uses: actions/download-artifact@v4
+        with:
+          name: render-${{ github.run_number }}
+          path: artifact
+
+      - name: Listen to it
+        run: |
+          set -e
+          MP4=$(find artifact -name '*.mp4' | head -1)
+          echo "film: $MP4"
+          echo "### What it sounds like" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          earshot measure "$MP4" >> $GITHUB_STEP_SUMMARY
+          earshot timeline "$MP4" --detail low | head -30 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "### Scorecard" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          earshot critique "$MP4" --fast | head -40 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
