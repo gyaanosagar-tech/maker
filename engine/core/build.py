@@ -174,7 +174,10 @@ def run(job_path: str, workroot: str = "out", fmt: str = None) -> dict:
     mixed = os.path.join(out, "mix.wav")
     AU.master_two_pass(voice, imp, room, tl.duration, mixed,
                        lufs=job.get("lufs", -14.0), bed=bed,
-                       bed_gain=job.get("music_gain", 0.17))
+                       bed_gain=job.get("music_gain", 0.17),
+                       impact_gain=job.get("impact_gain", 0.42),
+                       room_gain=job.get("room_gain", 0.30),
+                       voice_gain=job.get("voice_gain", 1.0))
     report.append(f"mix: voice + {len(cut_times)} impacts + room" + (" + bed" if bed else ""))
 
     # ---- 6. encode + QC

@@ -174,16 +174,24 @@ class RankShort:
                         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                         "-shortest", tmp], capture_output=True)
 
+        # Loudness: same measured two-pass the rest of the engine uses. This
+        # block used to run its own `volume=<error>dB` loop, which is the bug
+        # that shipped -9.6 LUFS masters: the error was read from ebur128's
+        # first progress line instead of the Summary, so the loop boosted by
+        # the maximum and never converged. One helper, one behaviour.
         cur = tmp
-        for _ in range(5):
+        for attempt in range(5):
             got = AU.loudness(cur)
-            if got == got and abs(got - lufs) <= 0.6:
+            if got != got or got <= -60.0:
                 break
-            delta = max(-14.0, min(14.0, lufs - (got if got == got else lufs)))
-            nxt = os.path.join(self.out, f"tune{_}.mp4")
-            r = subprocess.run([FF(), "-y", "-i", cur, "-c:v", "copy", "-af",
-                                f"volume={delta:.2f}dB,loudnorm=I={lufs}:TP=-1.5:LRA=11",
-                                "-c:a", "aac", "-b:a", "192k", nxt],
+            if abs(got - lufs) <= 0.6:
+                break
+            af = AU.loudnorm_second_pass(cur, lufs)
+            if not af:
+                break
+            nxt = os.path.join(self.out, f"tune{attempt}.mp4")
+            r = subprocess.run([FF(), "-y", "-i", cur, "-c:v", "copy",
+                                "-af", af, "-c:a", "aac", "-b:a", "192k", nxt],
                                capture_output=True)
             if r.returncode != 0 or not os.path.exists(nxt):
                 break
